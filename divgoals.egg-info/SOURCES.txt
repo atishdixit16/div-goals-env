@@ -1,0 +1,13 @@
+LICENSE
+MANIFEST.in
+setup.py
+divgoals/__init__.py
+divgoals.egg-info/PKG-INFO
+divgoals.egg-info/SOURCES.txt
+divgoals.egg-info/dependency_links.txt
+divgoals.egg-info/requires.txt
+divgoals.egg-info/top_level.txt
+divgoals/environment/__init__.py
+divgoals/environment/agent.py
+divgoals/environment/environment.py
+divgoals/environment/rendering.py
