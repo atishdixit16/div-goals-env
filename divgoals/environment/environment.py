@@ -38,13 +38,17 @@ class Player:
         self.reward = 0
         self.history = None
         self.current_step = None
+        self.first_goal_reached = False
+        self.my_goal_reached = False
 
-    def setup(self, position, level, field_size):
+    def setup(self, position, level, field_size, n_players):
         self.history = []
         self.position = position
         self.level = level
         self.field_size = field_size
         self.score = 0
+        self.first_goal_reached = False
+        self.my_goal_reached = False
 
     def set_controller(self, controller):
         self.controller = controller
@@ -73,7 +77,7 @@ class DivGoalsEnv(Env):
         ["field", "players", "game_over", "sight", "current_step"],
     )
     PlayerObservation = namedtuple(
-        "PlayerObservation", ["position", "level", "history", "reward", "is_self"]
+        "PlayerObservation", ["position", "level", "history", "reward", "is_self", "first_goal_reached", "my_goal_reached"]
     )  # reward is available only if is_self
 
     def __init__(
@@ -126,8 +130,8 @@ class DivGoalsEnv(Env):
 
         max_num_food = len(self.players)
 
-        min_obs = [-1, -1, 0] * max_num_food + [-1, -1, 1] * len(self.players)
-        max_obs = [field_x-1, field_y-1, len(self.players)] * max_num_food + [field_x-1, field_y-1, 2] * len(self.players)
+        min_obs = [-1, -1, 0] * max_num_food + [-1, -1, 1, 0, 0] * len(self.players)
+        max_obs = [field_x-1, field_y-1, len(self.players)] * max_num_food + [field_x-1, field_y-1, len(self.players), 1, 1] * len(self.players)
 
         return gym.spaces.Box(np.array(min_obs), np.array(max_obs), dtype=np.float32)
 
@@ -136,7 +140,7 @@ class DivGoalsEnv(Env):
         players = []
         for p in obs.players:
             player = Player()
-            player.setup(p.position, p.level, obs.field.shape)
+            player.setup(p.position, p.level, obs.field.shape, len(obs.players))
             player.score = p.score if p.score else 0
             players.append(player)
 
@@ -262,6 +266,7 @@ class DivGoalsEnv(Env):
                         (row, col),
                         i+1,
                         self.field_size,
+                        len(self.players)
                     )
                     break
                 attempts += 1
@@ -313,6 +318,8 @@ class DivGoalsEnv(Env):
                     is_self=a == player,
                     history=a.history,
                     reward=a.reward if a == player else None,
+                    first_goal_reached=a.first_goal_reached,
+                    my_goal_reached=a.my_goal_reached
                 )
                 for a in self.players
                 if (
@@ -359,14 +366,19 @@ class DivGoalsEnv(Env):
                 obs[3 * i + 2] = observation.field[y, x]
 
             for i in range(len(self.players)):
-                obs[max_num_food * 3 + 3 * i] = -1
-                obs[max_num_food * 3 + 3 * i + 1] = -1
-                obs[max_num_food * 3 + 3 * i + 2] = 1
+                obs[max_num_food * 3 + 5 * i] = -1
+                obs[max_num_food * 3 + 5 * i + 1] = -1
+                obs[max_num_food * 3 + 5 * i + 2] = 1
+                obs[max_num_food * 3 + 5 * i + 3] = False
+                obs[max_num_food * 3 + 5 * i + 4] = False
 
             for i, p in enumerate(seen_players):
-                obs[max_num_food * 3 + 3 * i] = p.position[0]
-                obs[max_num_food * 3 + 3 * i + 1] = p.position[1]
-                obs[max_num_food * 3 + 3 * i + 2] = p.level
+                obs[max_num_food * 3 + 5 * i] = p.position[0]
+                obs[max_num_food * 3 + 5 * i + 1] = p.position[1]
+                obs[max_num_food * 3 + 5 * i + 2] = p.level
+                obs[max_num_food * 3 + 5 * i + 3] = p.first_goal_reached
+                obs[max_num_food * 3 + 5 * i + 4] = p.my_goal_reached
+
 
             return obs
 
@@ -414,17 +426,28 @@ class DivGoalsEnv(Env):
             if action == Action.NORTH:
                 player.position = (player.position[0] - 1 , player.position[1])
             elif action == Action.SOUTH:
-                player.position = (player.position[0] + 1 , player.position[1] )
+                player.position = (player.position[0] + 1 , player.position[1])
             elif action == Action.WEST:
                 player.position = (player.position[0], player.position[1] - 1)
             elif action == Action.EAST:
                 player.position = (player.position[0], player.position[1] + 1)
 
-            # reward negative manhattan distance from the goals
-            player.reward -= sum( np.abs(self.goals[player.level] - player.position) )
+            if self.field[player.position]==1 and player.level==1 and not player.first_goal_reached:
+                player.reward += 1
+                player.first_goal_reached = True
 
+            if player.level>1:
+                if self.field[player.position]==1 and not player.first_goal_reached:
+                    player.reward += 1/2
+                    player.first_goal_reached = True
+
+                if self.field[player.position]==player.level and not player.my_goal_reached and player.first_goal_reached:
+                    player.reward += 1/2
+                    player.first_goal_reached = True
+                    player.my_goal_reached = True
+         
             if self._normalize_reward:
-                player.reward = player.reward/(sum(self.field.shape)*len(self.players))
+                player.reward = player.reward/len(self.players)
 
         # return reward array if swapping is on
         if swap:

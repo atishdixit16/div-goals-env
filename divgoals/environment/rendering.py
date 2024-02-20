@@ -51,6 +51,7 @@ _GREEN = (0, 255, 0)
 _RED = (255, 0, 0)
 _BLUE = (0,0,255)
 _TEAL = (0, 128, 128)
+_GRAY = (128, 128, 128)
 
 _BACKGROUND_COLOR = _WHITE
 _GRID_COLOR = _BLACK
@@ -202,7 +203,7 @@ class Viewer(object):
                         (self.grid_size + 1) * (y + 1) - _GOAL_PADDING,  # BL - Y
                     ),
                 ),
-                ("c3B", 4 * _TEAL),
+                ("c3B", 4 * _TEAL),  # color
             )
             # apples.append(
             #     pyglet.sprite.Sprite(
