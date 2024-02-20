@@ -435,6 +435,7 @@ class DivGoalsEnv(Env):
             if self.field[player.position]==1 and player.level==1 and not player.first_goal_reached:
                 player.reward += 1
                 player.first_goal_reached = True
+                player.my_goal_reached = True
 
             if player.level>1:
                 if self.field[player.position]==1 and not player.first_goal_reached:
@@ -486,7 +487,7 @@ class DivGoalsEnv(Env):
 
         self.compute_rewards(self.players, actions, swap=False)
 
-        self._game_over = (self._max_episode_steps <= self.current_step)
+        self._game_over = all([p.my_goal_reached for p in self.players ]) or (self._max_episode_steps <= self.current_step)
 
         for p in self.players:
             p.score += p.reward
