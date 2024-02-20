@@ -432,16 +432,25 @@ class DivGoalsEnv(Env):
             elif action == Action.EAST:
                 player.position = (player.position[0], player.position[1] + 1)
 
+            # agent 1 is gets reward when it reaches the first goal
             if self.field[player.position]==1 and player.level==1 and not player.first_goal_reached:
                 player.reward += 1
                 player.first_goal_reached = True
                 player.my_goal_reached = True
 
+            # agent 1 is penalized when it reaches other goals
+            if self.field[player.position]>1 and player.level==1:
+                player.reward -= 1
+                player.first_goal_reached = True
+                player.my_goal_reached = True
+
             if player.level>1:
+                # ageet id>1 is rewarded when it reaches first goal
                 if self.field[player.position]==1 and not player.first_goal_reached:
                     player.reward += 1/2
                     player.first_goal_reached = True
 
+                # agent id>1 is rewarded when it reaches its goal
                 if self.field[player.position]==player.level and not player.my_goal_reached and player.first_goal_reached:
                     player.reward += 1/2
                     player.first_goal_reached = True
