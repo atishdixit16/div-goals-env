@@ -126,8 +126,8 @@ class DivGoalsEnv(Env):
 
         max_num_food = len(self.players)
 
-        min_obs = [-1, -1, 0] * max_num_food + [-1, -1] * len(self.players)
-        max_obs = [field_x-1, field_y-1, len(self.players)] * max_num_food + [field_x-1, field_y-1] * len(self.players)
+        min_obs = [-1, -1, 0] * max_num_food + [-1, -1, 1] * len(self.players)
+        max_obs = [field_x-1, field_y-1, len(self.players)] * max_num_food + [field_x-1, field_y-1, 2] * len(self.players)
 
         return gym.spaces.Box(np.array(min_obs), np.array(max_obs), dtype=np.float32)
 
@@ -359,12 +359,14 @@ class DivGoalsEnv(Env):
                 obs[3 * i + 2] = observation.field[y, x]
 
             for i in range(len(self.players)):
-                obs[max_num_food * 3 + 2 * i] = -1
-                obs[max_num_food * 3 + 2 * i + 1] = -1
+                obs[max_num_food * 3 + 3 * i] = -1
+                obs[max_num_food * 3 + 3 * i + 1] = -1
+                obs[max_num_food * 3 + 3 * i + 2] = 1
 
             for i, p in enumerate(seen_players):
-                obs[max_num_food * 3 + 2 * i] = p.position[0]
-                obs[max_num_food * 3 + 2 * i + 1] = p.position[1]
+                obs[max_num_food * 3 + 3 * i] = p.position[0]
+                obs[max_num_food * 3 + 3 * i + 1] = p.position[1]
+                obs[max_num_food * 3 + 3 * i + 2] = p.level
 
             return obs
 
