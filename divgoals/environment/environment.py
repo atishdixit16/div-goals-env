@@ -115,6 +115,17 @@ class DivGoalsEnv(Env):
 
         self.n_agents = len(self.players)
 
+        # make subtasks mask matrix for agents of the size n_agents x n_subtasks(3)
+        # sutask 1: going to the first goal
+        # subtask 2: going to the agent-id goal
+        # subtask 3: penalty for reaching other agent-id goals
+        self.subtasks_mask = np.zeros((self.n_agents, 3))
+        for i in range(self.n_agents):
+            if i==0:
+                self.subtasks_mask[i, :] = [1, 0, 1]
+            else:
+                self.subtasks_mask[i, :] = [1, 1, 0]
+
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
@@ -414,6 +425,13 @@ class DivGoalsEnv(Env):
     
     def compute_rewards(self, players, actions, swap=False):
 
+        # make reward marix of the size n_agents x n_subtasks(3)
+        # sutask 1: going to the first goal
+        # subtask 2: going to the agent-id goal
+        # subtask 3: penalty for reaching other agent-id goals
+        reward_array = np.zeros((len(players), 3))
+
+
         for p in players:
             p.reward = 0
 
@@ -432,36 +450,39 @@ class DivGoalsEnv(Env):
             elif action == Action.EAST:
                 player.position = (player.position[0], player.position[1] + 1)
 
-            # agent 1 is gets reward when it reaches the first goal
-            if self.field[player.position]==1 and player.level==1 and not player.first_goal_reached:
-                player.reward += 1
+            # subtask 1: going to the first goal
+            if self.field[player.position]==1 and not player.first_goal_reached:
+                if player.level==1:
+                    reward_array[player.level-1, 0] += 1
+                else:
+                    reward_array[player.level-1, 0] += 1/2
                 player.first_goal_reached = True
                 player.my_goal_reached = True
 
-            # agent 1 is penalized when it reaches other goals
-            if self.field[player.position]>1 and player.level==1:
-                player.reward -= 1
+            # subtask 2: going to the agent-id goal after the first goal is reached
+            if self.field[player.position]==player.level and player.first_goal_reached and not player.my_goal_reached:
+                reward_array[player.level-1, 1] += 1/2
                 player.first_goal_reached = True
                 player.my_goal_reached = True
-
-            if player.level>1:
-                # ageet id>1 is rewarded when it reaches first goal
-                if self.field[player.position]==1 and not player.first_goal_reached:
-                    player.reward += 1/2
-                    player.first_goal_reached = True
-
-                # agent id>1 is rewarded when it reaches its goal
-                if self.field[player.position]==player.level and not player.my_goal_reached and player.first_goal_reached:
-                    player.reward += 1/2
-                    player.first_goal_reached = True
-                    player.my_goal_reached = True
          
+            # subtask 3: penalty for reaching other agent-id goals
+            if self.field[player.position]>1 and player.level==1:
+                reward_array[player.level-1, 2] -= 1
+                player.first_goal_reached = True
+                player.my_goal_reached = True
+
             if self._normalize_reward:
-                player.reward = player.reward/len(self.players)
+                reward_array = reward_array/len(players)
+
+        # reward vector is obtained by point-wise product of reward_array and subtasks_mask, and then summing over the subtasks
+        for i in range(len(players)):
+            players[i].reward = np.sum(reward_array[i]*self.subtasks_mask[i])
 
         # return reward array if swapping is on
         if swap:
             return [player.reward for player in players]
+        
+        return reward_array
     
     def swap_players(self, swap, actions):
         players_copy = deepcopy(self.players)
@@ -494,14 +515,18 @@ class DivGoalsEnv(Env):
 
         self.current_step += 1
 
-        self.compute_rewards(self.players, actions, swap=False)
+        # compute reward subtask array
+        reward_array = self.compute_rewards(self.players, actions, swap=False)
 
         self._game_over = all([p.my_goal_reached for p in self.players ]) or (self._max_episode_steps <= self.current_step)
 
         for p in self.players:
             p.score += p.reward
 
-        return self._make_gym_obs()
+        o,r,d,i = self._make_gym_obs()
+        i['reward_subtask_array'] = reward_array
+
+        return o, r, d, i
 
     def _init_render(self):
         from .rendering import Viewer
