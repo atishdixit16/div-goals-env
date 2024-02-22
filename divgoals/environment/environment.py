@@ -465,8 +465,8 @@ class DivGoalsEnv(Env):
                 player.first_goal_reached = True
                 player.my_goal_reached = True
          
-            # subtask 3: penalty for reaching other agent-id goals
-            if self.field[player.position]>1 and player.level==1:
+            # subtask 3: penalty for reaching other agent-id goals after first goals are reached
+            if self.field[player.position]>1 and player.first_goal_reached:
                 reward_array[player.level-1, 2] -= 1
                 player.first_goal_reached = True
                 player.my_goal_reached = True
