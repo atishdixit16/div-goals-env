@@ -454,10 +454,10 @@ class DivGoalsEnv(Env):
             if self.field[player.position]==1 and not player.first_goal_reached:
                 if player.level==1:
                     reward_array[player.level-1, 0] += 1
+                    player.my_goal_reached = True
                 else:
                     reward_array[player.level-1, 0] += 1/2
                 player.first_goal_reached = True
-                player.my_goal_reached = True
 
             # subtask 2: going to the agent-id goal after the first goal is reached
             if self.field[player.position]==player.level and player.first_goal_reached and not player.my_goal_reached:
@@ -471,8 +471,8 @@ class DivGoalsEnv(Env):
                 player.first_goal_reached = True
                 player.my_goal_reached = True
 
-            if self._normalize_reward:
-                reward_array = reward_array/len(players)
+        if self._normalize_reward:
+            reward_array = reward_array/len(players)
 
         # reward vector is obtained by point-wise product of reward_array and subtasks_mask, and then summing over the subtasks
         for i in range(len(players)):
