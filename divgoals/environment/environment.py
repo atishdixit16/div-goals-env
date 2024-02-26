@@ -120,11 +120,14 @@ class DivGoalsEnv(Env):
         # subtask 2: going to the agent-id goal
         # subtask 3: penalty for reaching other agent-id goals
         self.subtasks_mask = np.zeros((self.n_agents, 3))
-        for i in range(self.n_agents):
-            if i==0:
-                self.subtasks_mask[i, :] = [1, 0, 1]
+        for i in range(1,self.n_agents+1):
+            if i==1:
+                self.subtasks_mask[i-1, :] = [1, 0, 1]
             else:
-                self.subtasks_mask[i, :] = [1, 1, 0]
+                if i%2==1:
+                    self.subtasks_mask[i-1, :] = [1, 1, 1]
+                else:
+                    self.subtasks_mask[i-1, :] = [1, 1, 0]
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -450,13 +453,16 @@ class DivGoalsEnv(Env):
             elif action == Action.EAST:
                 player.position = (player.position[0], player.position[1] + 1)
 
+            # subtask 3: penalty to odd indexed agents for reaching other agent-id goals after first goal is reached
+            if (self.field[player.position]>0 
+                and self.field[player.position]!=player.level 
+                and player.level%2==1 
+                and player.first_goal_reached):
+                reward_array[player.level-1, 2] -= 1
+
             # subtask 1: going to the first goal
             if self.field[player.position]==1 and not player.first_goal_reached:
-                if player.level==1:
-                    reward_array[player.level-1, 0] += 1
-                    player.my_goal_reached = True
-                else:
-                    reward_array[player.level-1, 0] += 1/2
+                reward_array[player.level-1, 0] += 1/2
                 player.first_goal_reached = True
 
             # subtask 2: going to the agent-id goal after the first goal is reached
@@ -465,12 +471,6 @@ class DivGoalsEnv(Env):
                 player.first_goal_reached = True
                 player.my_goal_reached = True
          
-            # subtask 3: penalty for reaching other agent-id goals after first goals are reached
-            if self.field[player.position]>1 and player.first_goal_reached:
-                reward_array[player.level-1, 2] -= 1
-                player.first_goal_reached = True
-                player.my_goal_reached = True
-
         if self._normalize_reward:
             reward_array = reward_array/len(players)
 
@@ -518,7 +518,7 @@ class DivGoalsEnv(Env):
         # compute reward subtask array
         reward_array = self.compute_rewards(self.players, actions, swap=False)
 
-        self._game_over = all([p.my_goal_reached for p in self.players ]) or (self._max_episode_steps <= self.current_step)
+        self._game_over = (self._max_episode_steps <= self.current_step)
 
         for p in self.players:
             p.score += p.reward
