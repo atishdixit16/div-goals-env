@@ -118,16 +118,14 @@ class DivGoalsEnv(Env):
         # make subtasks mask matrix for agents of the size n_agents x n_subtasks(3)
         # sutask 1: going to the first goal
         # subtask 2: going to the agent-id goal
-        # subtask 3: penalty for reaching other agent-id goals
-        self.subtasks_mask = np.zeros((self.n_agents, 3))
+        # subtask 3: penalty for reaching other agent-id goals after my goals are reached
+        # subtask 4: removing subtask 1 reward when subtask 2 (final goal) is not completed
+        self.subtasks_mask = np.zeros((self.n_agents, 4))
         for i in range(1,self.n_agents+1):
-            if i==1:
-                self.subtasks_mask[i-1, :] = [1, 0, 1]
+            if i%2==1:
+                self.subtasks_mask[i-1, :] = [1, 1, 1, 1]
             else:
-                if i%2==1:
-                    self.subtasks_mask[i-1, :] = [1, 1, 1]
-                else:
-                    self.subtasks_mask[i-1, :] = [1, 1, 0]
+                self.subtasks_mask[i-1, :] = [1, 1, 0, 1]
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -432,7 +430,7 @@ class DivGoalsEnv(Env):
         # sutask 1: going to the first goal
         # subtask 2: going to the agent-id goal
         # subtask 3: penalty for reaching other agent-id goals
-        reward_array = np.zeros((len(players), 3))
+        reward_array = np.zeros((len(players), 4))
 
 
         for p in players:
@@ -453,11 +451,11 @@ class DivGoalsEnv(Env):
             elif action == Action.EAST:
                 player.position = (player.position[0], player.position[1] + 1)
 
-            # subtask 3: penalty to odd indexed agents for reaching other agent-id goals after first goal is reached
+            # subtask 3: penalty to odd indexed agents for reaching other agent-id goals after my goal is reached
             if (self.field[player.position]>0 
                 and self.field[player.position]!=player.level 
                 and player.level%2==1 
-                and player.first_goal_reached):
+                and player.my_goal_reached):
                 reward_array[player.level-1, 2] -= 1
 
             # subtask 1: going to the first goal
@@ -468,7 +466,6 @@ class DivGoalsEnv(Env):
             # subtask 2: going to the agent-id goal after the first goal is reached
             if self.field[player.position]==player.level and player.first_goal_reached and not player.my_goal_reached:
                 reward_array[player.level-1, 1] += 1/2
-                player.first_goal_reached = True
                 player.my_goal_reached = True
          
         if self._normalize_reward:
@@ -523,10 +520,22 @@ class DivGoalsEnv(Env):
         for p in self.players:
             p.score += p.reward
 
-        o,r,d,i = self._make_gym_obs()
+        o,r,done,i = self._make_gym_obs()
+
+        # subtask 4: removing subtask 1 reward when subtask 2 (final goal) is not completed
+        if all(done):
+            for p in self.players:
+                if p.first_goal_reached and not p.my_goal_reached:
+                    reward_array[p.level-1, 3] = (-1/2)/len(self.players) if self._normalize_reward else -1/2            
+            # reward vector is obtained by point-wise product of reward_array and subtasks_mask, and then summing over the subtasks
+            r = np.zeros(len(self.players))
+            for j in range(len(self.players)):
+                r[j] = np.sum(reward_array[j]*self.subtasks_mask[j])
+
         i['reward_subtask_array'] = reward_array
 
-        return o, r, d, i
+
+        return o, r, done, i
 
     def _init_render(self):
         from .rendering import Viewer
