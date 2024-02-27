@@ -528,7 +528,7 @@ class DivGoalsEnv(Env):
                 if p.first_goal_reached and not p.my_goal_reached:
                     reward_array[p.level-1, 3] = (-1/2)/len(self.players) if self._normalize_reward else -1/2            
             # reward vector is obtained by point-wise product of reward_array and subtasks_mask, and then summing over the subtasks
-            r = np.zeros(len(self.players))
+            r = [0.0]*len(self.players)
             for j in range(len(self.players)):
                 r[j] = np.sum(reward_array[j]*self.subtasks_mask[j])
 
