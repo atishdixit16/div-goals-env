@@ -142,8 +142,8 @@ class DivGoalsEnv(Env):
 
         max_num_food = len(self.players)
 
-        min_obs = [-1, -1, 0] * max_num_food + [-1, -1, 1, 0, 0] * len(self.players)
-        max_obs = [field_x-1, field_y-1, len(self.players)] * max_num_food + [field_x-1, field_y-1, len(self.players), 1, 1] * len(self.players)
+        min_obs = [-1, -1, 0] * max_num_food + [-1, -1, 1, 0, 0] * len(self.players) + [0.0]
+        max_obs = [field_x-1, field_y-1, len(self.players)] * max_num_food + [field_x-1, field_y-1, len(self.players), 1, 1] * len(self.players) + [1.0]
 
         return gym.spaces.Box(np.array(min_obs), np.array(max_obs), dtype=np.float32)
 
@@ -391,6 +391,7 @@ class DivGoalsEnv(Env):
                 obs[max_num_food * 3 + 5 * i + 3] = p.first_goal_reached
                 obs[max_num_food * 3 + 5 * i + 4] = p.my_goal_reached
 
+            obs[-1] = self.current_step/self._max_episode_steps if self.current_step<self._max_episode_steps else 1.0
 
             return obs
 
@@ -522,7 +523,7 @@ class DivGoalsEnv(Env):
 
         o,r,done,i = self._make_gym_obs()
 
-        # subtask 4: removing subtask 1 reward when subtask 2 (final goal) is not completed
+        # subtask 4: removing subtask 1 reward when subtask 2 (final goal) is not completed at the end of the episode
         if all(done):
             for p in self.players:
                 if p.first_goal_reached and not p.my_goal_reached:
