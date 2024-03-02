@@ -521,7 +521,7 @@ class DivGoalsEnv(Env):
         for p in self.players:
             p.score += p.reward
 
-        o,r,done,i = self._make_gym_obs()
+        obs,rewards,done,info = self._make_gym_obs()
 
         # subtask 4: removing subtask 1 reward when subtask 2 (final goal) is not completed at the end of the episode
         if all(done):
@@ -529,14 +529,13 @@ class DivGoalsEnv(Env):
                 if p.first_goal_reached and not p.my_goal_reached:
                     reward_array[p.level-1, 3] = (-1/2)/len(self.players) if self._normalize_reward else -1/2            
             # reward vector is obtained by point-wise product of reward_array and subtasks_mask, and then summing over the subtasks
-            r = [0.0]*len(self.players)
+            rewards = [0.0]*len(self.players)
             for j in range(len(self.players)):
-                r[j] = np.sum(reward_array[j]*self.subtasks_mask[j])
+                rewards[j] = np.sum(reward_array[j]*self.subtasks_mask[j])
 
-        i['reward_subtask_array'] = reward_array
+        info['reward_subtask_array'] = reward_array
 
-
-        return o, r, done, i
+        return obs, reward_array, done, info
 
     def _init_render(self):
         from .rendering import Viewer
