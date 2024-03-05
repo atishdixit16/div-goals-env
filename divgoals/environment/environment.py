@@ -457,17 +457,19 @@ class DivGoalsEnv(Env):
                 and self.field[player.position]!=player.level 
                 and player.level%2==1 
                 and player.my_goal_reached):
-                reward_array[player.level-1, 2] -= 1
+                reward_array[player.level-1, 2] = -1
 
             # subtask 1: going to the first goal
             if self.field[player.position]==1 and not player.first_goal_reached:
-                reward_array[player.level-1, 0] += 1/2
+                reward_array[player.level-1, 0] = 1/100
                 player.first_goal_reached = True
 
             # subtask 2: going to the agent-id goal after the first goal is reached
             if self.field[player.position]==player.level and player.first_goal_reached and not player.my_goal_reached:
-                reward_array[player.level-1, 1] += 1/2
+                reward_array[player.level-1, 1] = 1
                 player.my_goal_reached = True
+                # remove first subtask reward if the final goal is reached to mainitain unit reward (subtask 4)
+                reward_array[player.level-1, 3] = -1/100
          
         if self._normalize_reward:
             reward_array = reward_array/len(players)
@@ -521,21 +523,11 @@ class DivGoalsEnv(Env):
         for p in self.players:
             p.score += p.reward
 
-        obs,rewards,done,info = self._make_gym_obs()
-
-        # subtask 4: removing subtask 1 reward when subtask 2 (final goal) is not completed at the end of the episode
-        if all(done):
-            for p in self.players:
-                if p.first_goal_reached and not p.my_goal_reached:
-                    reward_array[p.level-1, 3] = (-1/2)/len(self.players) if self._normalize_reward else -1/2            
-            # reward vector is obtained by point-wise product of reward_array and subtasks_mask, and then summing over the subtasks
-            rewards = [0.0]*len(self.players)
-            for j in range(len(self.players)):
-                rewards[j] = np.sum(reward_array[j]*self.subtasks_mask[j])
+        obs, rewards, done, info = self._make_gym_obs()
 
         info['reward_subtask_array'] = reward_array
 
-        return obs, reward_array, done, info
+        return obs, rewards, done, info
 
     def _init_render(self):
         from .rendering import Viewer
