@@ -69,7 +69,7 @@ class DivGoalsEnv(Env):
     A class that contains rules/actions for the game level-based foraging.
     """
 
-    metadata = {"render.modes": ["human"]}
+    metadata = {"render.modes": ["human", "rgb_array"]}
 
     action_set = [Action.NORTH, Action.SOUTH, Action.WEST, Action.EAST]
     Observation = namedtuple(
