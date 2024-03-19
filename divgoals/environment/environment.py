@@ -39,7 +39,7 @@ class Player:
         self.history = None
         self.current_step = None
         self.first_goal_reached = False
-        self.my_goal_reached = False
+        self.final_goal_reached = False
 
     def setup(self, position, level, field_size, n_players):
         self.history = []
@@ -48,7 +48,7 @@ class Player:
         self.field_size = field_size
         self.score = 0
         self.first_goal_reached = False
-        self.my_goal_reached = False
+        self.final_goal_reached = False
 
     def set_controller(self, controller):
         self.controller = controller
@@ -77,7 +77,7 @@ class DivGoalsEnv(Env):
         ["field", "players", "game_over", "sight", "current_step"],
     )
     PlayerObservation = namedtuple(
-        "PlayerObservation", ["position", "level", "history", "reward", "is_self", "first_goal_reached", "my_goal_reached"]
+        "PlayerObservation", ["position", "level", "history", "reward", "is_self", "first_goal_reached", "final_goal_reached"]
     )  # reward is available only if is_self
 
     def __init__(
@@ -331,7 +331,7 @@ class DivGoalsEnv(Env):
                     history=a.history,
                     reward=a.reward if a == player else None,
                     first_goal_reached=a.first_goal_reached,
-                    my_goal_reached=a.my_goal_reached
+                    final_goal_reached=a.final_goal_reached
                 )
                 for a in self.players
                 if (
@@ -389,7 +389,7 @@ class DivGoalsEnv(Env):
                 obs[max_num_food * 3 + 5 * i + 1] = p.position[1]
                 obs[max_num_food * 3 + 5 * i + 2] = p.level
                 obs[max_num_food * 3 + 5 * i + 3] = p.first_goal_reached
-                obs[max_num_food * 3 + 5 * i + 4] = p.my_goal_reached
+                obs[max_num_food * 3 + 5 * i + 4] = p.final_goal_reached
 
             obs[-1] = self.current_step/self._max_episode_steps if self.current_step<self._max_episode_steps else 1.0
 
@@ -456,20 +456,32 @@ class DivGoalsEnv(Env):
             if (self.field[player.position]>0 
                 and self.field[player.position]!=player.level 
                 and player.level%2==1 
-                and player.my_goal_reached):
+                and player.final_goal_reached):
                 reward_array[player.level-1, 2] = -1
 
-            # subtask 1: going to the first goal
-            if self.field[player.position]==1 and not player.first_goal_reached:
-                reward_array[player.level-1, 0] = 1/100
-                player.first_goal_reached = True
+            # subtask 1: odd agents go to idx goal first and even agent go to goal 1 first
+            if  player.level%2==0:
+                if self.field[player.position]==1 and not player.first_goal_reached:
+                    reward_array[player.level-1, 0] = 1/100
+                    player.first_goal_reached = True
+            else:
+                if self.field[player.position]==player.level and not player.first_goal_reached:
+                    reward_array[player.level-1, 0] = 1/100
+                    player.first_goal_reached = True
 
-            # subtask 2: going to the agent-id goal after the first goal is reached
-            if self.field[player.position]==player.level and player.first_goal_reached and not player.my_goal_reached:
-                reward_array[player.level-1, 1] = 1
-                player.my_goal_reached = True
-                # remove first subtask reward if the final goal is reached to mainitain unit reward (subtask 4)
-                reward_array[player.level-1, 3] = -1/100
+            # subtask 2: then odd agents go to goal 1 and even agents go to idx goal
+            if player.level%2==0:
+                if self.field[player.position]==player.level and player.first_goal_reached and not player.final_goal_reached:
+                    reward_array[player.level-1, 1] = 1
+                    player.final_goal_reached = True
+                    # remove first subtask reward if the final goal is reached to mainitain unit reward (subtask 4)
+                    reward_array[player.level-1, 3] = -1/100
+            else:
+                if self.field[player.position]==1 and player.first_goal_reached and not player.final_goal_reached:
+                    reward_array[player.level-1, 1] = 1
+                    player.final_goal_reached = True
+                    # remove first subtask reward if the final goal is reached to mainitain unit reward (subtask 4)
+                    reward_array[player.level-1, 3] = -1/100
          
         if self._normalize_reward:
             reward_array = reward_array/len(players)

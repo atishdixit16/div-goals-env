@@ -238,7 +238,7 @@ class Viewer(object):
             p.update(scale=self.grid_size / p.width)
         batch.draw()
         for p in env.players:
-            self._draw_badge(*p.position, p.level, p.my_goal_reached)
+            self._draw_badge(*p.position, p.level, p.final_goal_reached)
             # self._draw_logic_badge(*p.position, p.level, p.load_logic)
 
     def _draw_badge(self, row, col, level, task_done=False):
