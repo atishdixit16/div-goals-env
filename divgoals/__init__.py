@@ -14,7 +14,7 @@ for s, p, po, pen in product(sizes, players, partial_obs, pens):
             "players": p,
             "field_size": (s, s),
             "sight": 2 if po else s,
-            "max_episode_steps": 200,
+            "max_episode_steps": 50,
             "penalty": 1.0 if pen else 0.0,
         },
     )
